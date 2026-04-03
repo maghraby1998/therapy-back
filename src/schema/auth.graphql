@@ -1,0 +1,88 @@
+scalar DateTime
+
+enum UserRole {
+  PATIENT
+  DOCTOR
+}
+
+enum DoctorVerificationStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+type DoctorCertificate {
+  id: ID!
+  title: String!
+  issuer: String
+  fileUrl: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type PatientProfile {
+  id: ID!
+  fullName: String
+  dateOfBirth: DateTime
+  gender: String
+  emergencyContactName: String
+  emergencyContactPhone: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type DoctorProfile {
+  id: ID!
+  fullName: String
+  specialty: String
+  bio: String
+  yearsOfExperience: Int
+  licenseNumber: String
+  verificationStatus: DoctorVerificationStatus!
+  certificates: [DoctorCertificate!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type User {
+  id: ID!
+  email: String!
+  phone: String!
+  role: UserRole!
+  isActive: Boolean!
+  isEmailVerified: Boolean!
+  isPhoneVerified: Boolean!
+  profileCompletedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  patientProfile: PatientProfile
+  doctorProfile: DoctorProfile
+}
+
+type AuthPayload {
+  accessToken: String!
+  tokenType: String!
+  user: User!
+}
+
+input RegisterInput {
+  email: String!
+  phone: String!
+  password: String!
+  role: UserRole!
+}
+
+input LoginInput {
+  emailOrPhone: String!
+  password: String!
+}
+
+type Query {
+  me: User!
+}
+
+type Mutation {
+  register(input: RegisterInput!): AuthPayload!
+  login(input: LoginInput!): AuthPayload!
+}

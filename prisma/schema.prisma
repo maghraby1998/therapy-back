@@ -1,0 +1,85 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum UserRole {
+  PATIENT
+  DOCTOR
+}
+
+enum DoctorVerificationStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id                 String          @id @default(uuid())
+  email              String          @unique
+  phone              String          @unique
+  passwordHash       String
+  role               UserRole
+  isActive           Boolean         @default(true)
+  isEmailVerified    Boolean         @default(false)
+  isPhoneVerified    Boolean         @default(false)
+  profileCompletedAt DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  patientProfile     PatientProfile?
+  doctorProfile      DoctorProfile?
+
+  @@index([role])
+}
+
+model PatientProfile {
+  id                    String    @id @default(uuid())
+  userId                String    @unique
+  fullName              String?
+  dateOfBirth           DateTime?
+  gender                String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DoctorProfile {
+  id                 String                   @id @default(uuid())
+  userId             String                   @unique
+  fullName           String?
+  specialty          String?
+  bio                String?
+  yearsOfExperience  Int?
+  licenseNumber      String?
+  verificationStatus DoctorVerificationStatus @default(PENDING)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  certificates       DoctorCertificate[]
+}
+
+model DoctorCertificate {
+  id              String        @id @default(uuid())
+  doctorProfileId String
+  title           String
+  issuer          String?
+  fileUrl         String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  doctorProfile   DoctorProfile @relation(fields: [doctorProfileId], references: [id], onDelete: Cascade)
+
+  @@index([doctorProfileId])
+}
