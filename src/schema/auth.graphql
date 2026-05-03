@@ -12,6 +12,13 @@ enum DoctorVerificationStatus {
   REJECTED
 }
 
+enum SessionStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
 type DoctorCertificate {
   id: ID!
   title: String!
@@ -60,6 +67,18 @@ type User {
   doctorProfile: DoctorProfile
 }
 
+type Session {
+  id: ID!
+  patient: User!
+  doctor: User!
+  startsAt: DateTime!
+  endsAt: DateTime!
+  notes: String
+  status: SessionStatus!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
 type AuthPayload {
   accessToken: String!
   tokenType: String!
@@ -78,11 +97,26 @@ input LoginInput {
   password: String!
 }
 
+input BookSessionInput {
+  doctorId: ID!
+  startsAt: DateTime!
+  endsAt: DateTime!
+  notes: String
+}
+
+input UpdateSessionStatusInput {
+  sessionId: ID!
+  status: SessionStatus!
+}
+
 type Query {
   me: User!
+  mySessions: [Session!]!
 }
 
 type Mutation {
   register(input: RegisterInput!): AuthPayload!
   login(input: LoginInput!): AuthPayload!
+  bookSession(input: BookSessionInput!): Session!
+  updateSessionStatus(input: UpdateSessionStatusInput!): Session!
 }

@@ -19,9 +19,9 @@ export class RegisterInput {
 
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
-  @Matches(/^\+?[1-9]\d{7,14}$/, {
-    message: 'phone must be a valid international phone number',
-  })
+  // @Matches(/^\+?[1-9]\d{7,14}$/, {
+  //   message: 'phone must be a valid international phone number',
+  // })
   phone: string;
 
   @IsString()

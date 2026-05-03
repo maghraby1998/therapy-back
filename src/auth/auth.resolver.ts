@@ -14,11 +14,15 @@ export class AuthResolver {
 
   @Mutation('register')
   register(@Args('input') input: RegisterInput): Promise<AuthPayloadModel> {
+    console.log('attempt register');
+
     return this.authService.register(input);
   }
 
   @Mutation('login')
   login(@Args('input') input: LoginInput): Promise<AuthPayloadModel> {
+    console.log('logging in');
+
     return this.authService.login(input);
   }
 

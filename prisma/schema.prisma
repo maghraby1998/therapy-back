@@ -25,6 +25,13 @@ enum DoctorVerificationStatus {
   REJECTED
 }
 
+enum SessionStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
 model User {
   id                 String          @id @default(uuid())
   email              String          @unique
@@ -39,6 +46,8 @@ model User {
   updatedAt          DateTime        @updatedAt
   patientProfile     PatientProfile?
   doctorProfile      DoctorProfile?
+  patientSessions    Session[]       @relation("PatientSessions")
+  doctorSessions     Session[]       @relation("DoctorSessions")
 
   @@index([role])
 }
@@ -82,4 +91,22 @@ model DoctorCertificate {
   doctorProfile   DoctorProfile @relation(fields: [doctorProfileId], references: [id], onDelete: Cascade)
 
   @@index([doctorProfileId])
+}
+
+model Session {
+  id         String        @id @default(uuid())
+  patientId  String
+  doctorId   String
+  startsAt   DateTime
+  endsAt     DateTime
+  notes      String?
+  status     SessionStatus @default(PENDING)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  patient    User          @relation("PatientSessions", fields: [patientId], references: [id], onDelete: Cascade)
+  doctor     User          @relation("DoctorSessions", fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, startsAt])
+  @@index([doctorId, startsAt])
+  @@index([status])
 }

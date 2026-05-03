@@ -43,10 +43,11 @@ async function bootstrap() {
     }),
   );
 
-  // app.enableCors({
-  //   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  //   credentials: true,
-  // });
+  app.enableCors({
+    origin: '*',
+    // origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,
+  });
 
   await app.listen(5000);
 }
