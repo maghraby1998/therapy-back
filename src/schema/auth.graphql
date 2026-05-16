@@ -75,8 +75,15 @@ type Session {
   endsAt: DateTime!
   notes: String
   status: SessionStatus!
+  roomName: String
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+type VideoCallRoom {
+  roomName: String!
+  token: String!
+  sessionId: ID!
 }
 
 type AuthPayload {
@@ -119,4 +126,6 @@ type Mutation {
   login(input: LoginInput!): AuthPayload!
   bookSession(input: BookSessionInput!): Session!
   updateSessionStatus(input: UpdateSessionStatusInput!): Session!
+  startVideoCall(sessionId: ID!): VideoCallRoom!
+  joinVideoCall(sessionId: ID!): VideoCallRoom!
 }

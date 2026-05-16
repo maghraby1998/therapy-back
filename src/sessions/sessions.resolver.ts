@@ -6,6 +6,7 @@ import type { UserWithProfiles } from '../users/users.service';
 import { BookSessionInput } from './dto/book-session.input';
 import { UpdateSessionStatusInput } from './dto/update-session-status.input';
 import { SessionModel } from './models/session.model';
+import { VideoCallRoomModel } from './models/video-call-room.model';
 import { SessionsService } from './sessions.service';
 
 @Resolver('Session')
@@ -34,5 +35,23 @@ export class SessionsResolver {
     @Args('input') input: UpdateSessionStatusInput,
   ): Promise<SessionModel> {
     return this.sessionsService.updateSessionStatus(user, input);
+  }
+
+  @UseGuards(GqlAuthGuard)
+  @Mutation('startVideoCall')
+  startVideoCall(
+    @CurrentUser() user: UserWithProfiles,
+    @Args('sessionId') sessionId: string,
+  ): Promise<VideoCallRoomModel> {
+    return this.sessionsService.startVideoCall(user, sessionId);
+  }
+
+  @UseGuards(GqlAuthGuard)
+  @Mutation('joinVideoCall')
+  joinVideoCall(
+    @CurrentUser() user: UserWithProfiles,
+    @Args('sessionId') sessionId: string,
+  ): Promise<VideoCallRoomModel> {
+    return this.sessionsService.joinVideoCall(user, sessionId);
   }
 }

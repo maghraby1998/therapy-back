@@ -7,6 +7,7 @@ import {
 import { Prisma, SessionStatus, UserRole } from '../../generated/prisma/client';
 import { UserWithProfiles } from '../users/users.service';
 import { PrismaService } from '../prisma.service';
+import { LiveKitService } from './livekit/livekit.service';
 import { BookSessionInput } from './dto/book-session.input';
 import { UpdateSessionStatusInput } from './dto/update-session-status.input';
 
@@ -35,7 +36,10 @@ const sessionInclude = {
 
 @Injectable()
 export class SessionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly liveKit: LiveKitService,
+  ) {}
 
   async bookSession(user: UserWithProfiles, input: BookSessionInput) {
     if (user.role !== UserRole.PATIENT) {
@@ -50,11 +54,15 @@ export class SessionsService {
     }
 
     if (endsAt <= startsAt) {
-      throw new BadRequestException('Session end time must be after start time');
+      throw new BadRequestException(
+        'Session end time must be after start time',
+      );
     }
 
     if (input.doctorId === user.id) {
-      throw new BadRequestException('Patients cannot book sessions with themselves');
+      throw new BadRequestException(
+        'Patients cannot book sessions with themselves',
+      );
     }
 
     const doctor = await this.prisma.user.findUnique({
@@ -104,7 +112,9 @@ export class SessionsService {
     const isDoctor = session.doctorId === user.id;
 
     if (!isPatient && !isDoctor) {
-      throw new ForbiddenException('You are not allowed to update this session');
+      throw new ForbiddenException(
+        'You are not allowed to update this session',
+      );
     }
 
     if (
@@ -121,7 +131,9 @@ export class SessionsService {
     }
 
     if (isDoctor && input.status === SessionStatus.PENDING) {
-      throw new BadRequestException('Doctors cannot move sessions back to pending');
+      throw new BadRequestException(
+        'Doctors cannot move sessions back to pending',
+      );
     }
 
     return this.prisma.session.update({
@@ -145,6 +157,89 @@ export class SessionsService {
     });
   }
 
+  async startVideoCall(user: UserWithProfiles, sessionId: string) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    if (session.doctorId !== user.id) {
+      throw new ForbiddenException(
+        'Only the assigned doctor can start a video call',
+      );
+    }
+
+    if (session.status !== SessionStatus.CONFIRMED) {
+      throw new BadRequestException(
+        'Video call can only be started for confirmed sessions',
+      );
+    }
+
+    if (session.roomName) {
+      const token = await this.liveKit.generateToken({
+        identity: user.id,
+        roomName: session.roomName,
+        isHost: true,
+      });
+
+      return { roomName: session.roomName, token, sessionId: session.id };
+    }
+
+    const roomName = `session-${session.id}`;
+
+    await this.liveKit.createRoom(roomName);
+
+    await this.prisma.session.update({
+      where: { id: session.id },
+      data: { roomName },
+    });
+
+    const token = await this.liveKit.generateToken({
+      identity: user.id,
+      roomName,
+      isHost: true,
+    });
+
+    return { roomName, token, sessionId: session.id };
+  }
+
+  async joinVideoCall(user: UserWithProfiles, sessionId: string) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    if (session.patientId !== user.id && session.doctorId !== user.id) {
+      throw new ForbiddenException('You are not a participant of this session');
+    }
+
+    if (session.status !== SessionStatus.CONFIRMED) {
+      throw new BadRequestException(
+        'This session is not ready for a video call',
+      );
+    }
+
+    if (!session.roomName) {
+      throw new BadRequestException(
+        'The doctor has not started the video call yet',
+      );
+    }
+
+    const token = await this.liveKit.generateToken({
+      identity: user.id,
+      roomName: session.roomName,
+      isHost: session.doctorId === user.id,
+    });
+
+    return { roomName: session.roomName, token, sessionId: session.id };
+  }
+
   private async ensureNoConflicts(params: {
     patientId: string;
     doctorId: string;
@@ -152,7 +247,10 @@ export class SessionsService {
     endsAt: Date;
   }) {
     const { patientId, doctorId, startsAt, endsAt } = params;
-    const overlappingStatuses = [SessionStatus.PENDING, SessionStatus.CONFIRMED];
+    const overlappingStatuses = [
+      SessionStatus.PENDING,
+      SessionStatus.CONFIRMED,
+    ];
 
     const conflictingSession = await this.prisma.session.findFirst({
       where: {

@@ -95,7 +95,7 @@ export class AuthService {
   private buildAccessTokenPayload(user: UserWithProfiles): AccessTokenPayload {
     return {
       sub: user.id,
-      role: user.role as UserRole,
+      role: user.role,
       email: user.email,
       phone: user.phone,
     };

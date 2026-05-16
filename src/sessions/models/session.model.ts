@@ -12,6 +12,8 @@ export class SessionModel {
 
   status: SessionStatus;
 
+  roomName?: string | null;
+
   createdAt: Date;
 
   updatedAt: Date;
