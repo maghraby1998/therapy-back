@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { DateTimeScalar } from './common/scalars/date-time.scalar';
 import { SessionsModule } from './sessions/sessions.module';
 import { UsersModule } from './users/users.module';
+import { DoctorModule } from './doctor/doctor.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     AuthModule,
     SessionsModule,
+    DoctorModule,
   ],
   controllers: [AppController],
   providers: [AppService, DateTimeScalar],

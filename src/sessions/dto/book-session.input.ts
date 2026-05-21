@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
+  IsDate,
   IsDateString,
   IsOptional,
   IsString,
@@ -12,10 +13,10 @@ export class BookSessionInput {
   @Transform(({ value }) => value?.trim())
   doctorId: string;
 
-  @IsDateString()
+  @IsDate()
   startsAt: string;
 
-  @IsDateString()
+  @IsDate()
   endsAt: string;
 
   @IsOptional()

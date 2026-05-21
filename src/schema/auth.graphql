@@ -119,6 +119,7 @@ input UpdateSessionStatusInput {
 type Query {
   me: User!
   mySessions: [Session!]!
+  doctors: [DoctorProfile]
 }
 
 type Mutation {

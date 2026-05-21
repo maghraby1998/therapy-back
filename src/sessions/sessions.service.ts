@@ -65,8 +65,8 @@ export class SessionsService {
       );
     }
 
-    const doctor = await this.prisma.user.findUnique({
-      where: { id: input.doctorId },
+    const doctor = await this.prisma.user.findFirst({
+      where: { doctorProfile: { id: input.doctorId } },
       include: {
         doctorProfile: true,
       },
@@ -86,7 +86,7 @@ export class SessionsService {
     return this.prisma.session.create({
       data: {
         patientId: user.id,
-        doctorId: input.doctorId,
+        doctorId: doctor.id,
         startsAt,
         endsAt,
         notes: input.notes || null,
