@@ -10,6 +10,7 @@ import { DateTimeScalar } from './common/scalars/date-time.scalar';
 import { SessionsModule } from './sessions/sessions.module';
 import { UsersModule } from './users/users.module';
 import { DoctorModule } from './doctor/doctor.module';
+import GraphQLUpload from 'graphql-upload/GraphQLUpload.js';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { DoctorModule } from './doctor/doctor.module';
       driver: ApolloDriver,
       typePaths: ['./**/*.graphql'],
       graphiql: true,
+      resolvers: { Upload: GraphQLUpload },
     }),
     UsersModule,
     AuthModule,

@@ -14,6 +14,10 @@ import { UserWithProfiles } from '../users/users.service';
 import { UpsertDoctorVerificationDocumentTypeInput } from './dto/upsert-doctor-verification-document-type.input';
 import { SubmitDoctorVerificationDocumentInput } from './dto/submit-doctor-verification-document.input';
 import { ReviewDoctorVerificationInput } from './dto/review-doctor-verification.input';
+import { createWriteStream, existsSync, mkdirSync } from 'fs';
+import { join, extname } from 'path';
+import { randomUUID } from 'crypto';
+import { pipeline } from 'stream/promises';
 
 const doctorProfileInclude = {
   certificates: {
@@ -138,6 +142,17 @@ export class DoctorService {
       throw new NotFoundException('Verification document type not found');
     }
 
+    const uploadDir = join(process.cwd(), 'uploads', 'certificates');
+    if (!existsSync(uploadDir)) {
+      mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const { createReadStream, filename } = await input.file;
+    const uniqueName = `${randomUUID()}${extname(filename)}`;
+    const filePath = join(uploadDir, uniqueName);
+    await pipeline(createReadStream(), createWriteStream(filePath));
+    const fileUrl = `/uploads/certificates/${uniqueName}`;
+
     const certificate = await this.prisma.doctorCertificate.upsert({
       where: {
         doctorProfileId_documentTypeId: {
@@ -150,13 +165,13 @@ export class DoctorService {
         documentTypeId: documentType.id,
         title: documentType.name,
         issuer: input.issuer?.trim() || null,
-        fileUrl: input.fileUrl.trim(),
+        fileUrl,
         notes: input.notes?.trim() || null,
       },
       update: {
         title: documentType.name,
         issuer: input.issuer?.trim() || null,
-        fileUrl: input.fileUrl.trim(),
+        fileUrl,
         notes: input.notes?.trim() || null,
       },
       include: {

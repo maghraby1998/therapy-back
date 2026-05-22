@@ -1,4 +1,5 @@
 scalar DateTime
+scalar Upload
 
 enum UserRole {
   PATIENT
@@ -104,7 +105,7 @@ input UpsertDoctorVerificationDocumentTypeInput {
 
 input SubmitDoctorVerificationDocumentInput {
   documentTypeId: ID!
-  fileUrl: String!
+  file: Upload!
   issuer: String
   notes: String
 }
