@@ -6,6 +6,7 @@ import { StringValue } from 'ms';
 import { UsersModule } from '../users/users.module';
 import { AuthResolver } from './auth.resolver';
 import { AuthService } from './auth.service';
+import { GqlAuthGuard } from './gql-auth.guard';
 import { JwtStrategy } from './jwt.strategy';
 
 @Module({
@@ -27,7 +28,7 @@ import { JwtStrategy } from './jwt.strategy';
       }),
     }),
   ],
-  providers: [AuthResolver, AuthService, JwtStrategy],
-  exports: [AuthService],
+  providers: [AuthResolver, AuthService, JwtStrategy, GqlAuthGuard],
+  exports: [AuthService, GqlAuthGuard],
 })
 export class AuthModule {}

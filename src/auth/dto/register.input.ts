@@ -10,6 +10,12 @@ import {
 import { UserRole } from '../../../generated/prisma/enums';
 
 export class RegisterInput {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MinLength(1)
+  @MaxLength(255)
+  name: string;
+
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )

@@ -16,6 +16,7 @@ datasource db {
 enum UserRole {
   PATIENT
   DOCTOR
+  ADMIN
 }
 
 enum DoctorVerificationStatus {
@@ -80,17 +81,33 @@ model DoctorProfile {
   certificates       DoctorCertificate[]
 }
 
+model DoctorVerificationDocumentType {
+  id           String              @id @default(uuid())
+  name         String              @unique
+  description  String?
+  isRequired   Boolean             @default(false)
+  isActive     Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  certificates DoctorCertificate[]
+}
+
 model DoctorCertificate {
   id              String        @id @default(uuid())
   doctorProfileId String
+  documentTypeId  String?
   title           String
   issuer          String?
   fileUrl         String
+  notes           String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   doctorProfile   DoctorProfile @relation(fields: [doctorProfileId], references: [id], onDelete: Cascade)
+  documentType    DoctorVerificationDocumentType? @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
 
   @@index([doctorProfileId])
+  @@index([documentTypeId])
+  @@unique([doctorProfileId, documentTypeId])
 }
 
 model Session {

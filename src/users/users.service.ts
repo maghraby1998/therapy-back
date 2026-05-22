@@ -6,7 +6,11 @@ const userWithProfilesInclude = {
   patientProfile: true,
   doctorProfile: {
     include: {
-      certificates: true,
+      certificates: {
+        include: {
+          documentType: true,
+        },
+      },
     },
   },
 } satisfies Prisma.UserInclude;
@@ -47,12 +51,13 @@ export class UsersService {
   }
 
   async createUser(params: {
+    name: string;
     email: string;
     phone: string;
     passwordHash: string;
     role: UserRole;
   }): Promise<UserWithProfiles> {
-    const { email, phone, passwordHash, role } = params;
+    const { name, email, phone, passwordHash, role } = params;
 
     return this.prisma.user.create({
       data: {
@@ -63,13 +68,17 @@ export class UsersService {
         patientProfile:
           role === UserRole.PATIENT
             ? {
-                create: {},
+                create: {
+                  fullName: name,
+                },
               }
             : undefined,
         doctorProfile:
           role === UserRole.DOCTOR
             ? {
-                create: {},
+                create: {
+                  fullName: name,
+                },
               }
             : undefined,
       },

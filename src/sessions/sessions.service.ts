@@ -4,7 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, SessionStatus, UserRole } from '../../generated/prisma/client';
+import {
+  DoctorVerificationStatus,
+  Prisma,
+  SessionStatus,
+  UserRole,
+} from '../../generated/prisma/client';
 import { UserWithProfiles } from '../users/users.service';
 import { PrismaService } from '../prisma.service';
 import { LiveKitService } from './livekit/livekit.service';
@@ -17,7 +22,11 @@ const sessionInclude = {
       patientProfile: true,
       doctorProfile: {
         include: {
-          certificates: true,
+          certificates: {
+            include: {
+              documentType: true,
+            },
+          },
         },
       },
     },
@@ -27,7 +36,11 @@ const sessionInclude = {
       patientProfile: true,
       doctorProfile: {
         include: {
-          certificates: true,
+          certificates: {
+            include: {
+              documentType: true,
+            },
+          },
         },
       },
     },
@@ -68,11 +81,45 @@ export class SessionsService {
     const doctor = await this.prisma.user.findFirst({
       where: { doctorProfile: { id: input.doctorId } },
       include: {
-        doctorProfile: true,
+        doctorProfile: {
+          include: {
+            certificates: {
+              include: {
+                documentType: true,
+              },
+            },
+          },
+        },
       },
     });
 
     if (!doctor || doctor.role !== UserRole.DOCTOR || !doctor.doctorProfile) {
+      throw new NotFoundException('Doctor not found');
+    }
+
+    const requiredDocumentTypes =
+      await this.prisma.doctorVerificationDocumentType.findMany({
+        where: {
+          isActive: true,
+          isRequired: true,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+    const submittedDocumentTypeIds = new Set(
+      doctor.doctorProfile.certificates
+        .map((certificate) => certificate.documentTypeId)
+        .filter((documentTypeId): documentTypeId is string => Boolean(documentTypeId)),
+    );
+
+    const canBeBooked =
+      doctor.doctorProfile.verificationStatus ===
+        DoctorVerificationStatus.APPROVED &&
+      requiredDocumentTypes.every(({ id }) => submittedDocumentTypeIds.has(id));
+
+    if (!canBeBooked) {
       throw new NotFoundException('Doctor not found');
     }
 

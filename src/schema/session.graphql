@@ -1,0 +1,48 @@
+enum SessionStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+type Session {
+  id: ID!
+  patient: User!
+  doctor: User!
+  startsAt: DateTime!
+  endsAt: DateTime!
+  notes: String
+  status: SessionStatus!
+  roomName: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Mutation {
+  bookSession(input: BookSessionInput!): Session!
+  updateSessionStatus(input: UpdateSessionStatusInput!): Session!
+  startVideoCall(sessionId: ID!): VideoCallRoom!
+  joinVideoCall(sessionId: ID!): VideoCallRoom!
+}
+
+type Query {
+  mySessions: [Session!]!
+}
+
+input UpdateSessionStatusInput {
+  sessionId: ID!
+  status: SessionStatus!
+}
+
+input BookSessionInput {
+  doctorId: ID!
+  startsAt: DateTime!
+  endsAt: DateTime!
+  notes: String
+}
+
+type VideoCallRoom {
+  roomName: String!
+  token: String!
+  sessionId: ID!
+}

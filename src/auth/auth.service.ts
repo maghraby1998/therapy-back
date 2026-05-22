@@ -25,8 +25,13 @@ export class AuthService {
   ) {}
 
   async register(input: RegisterInput) {
+    const name = input.name.trim();
     const email = input.email.trim().toLowerCase();
     const phone = input.phone.trim();
+
+    if (input.role === UserRole.ADMIN) {
+      throw new BadRequestException('Admin accounts cannot self-register');
+    }
 
     const [existingEmailUser, existingPhoneUser] = await Promise.all([
       this.usersService.findByEmail(email),
@@ -44,6 +49,7 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(input.password, 10);
 
     const user = await this.usersService.createUser({
+      name,
       email,
       phone,
       passwordHash,

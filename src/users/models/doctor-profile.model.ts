@@ -16,6 +16,10 @@ export class DoctorProfileModel {
 
   verificationStatus: DoctorVerificationStatus;
 
+  hasSubmittedRequiredDocuments?: boolean;
+
+  visibleInSearch?: boolean;
+
   certificates: DoctorCertificateModel[];
 
   createdAt: Date;

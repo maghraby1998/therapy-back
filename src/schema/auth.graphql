@@ -3,6 +3,7 @@ scalar DateTime
 enum UserRole {
   PATIENT
   DOCTOR
+  ADMIN
 }
 
 enum DoctorVerificationStatus {
@@ -12,11 +13,14 @@ enum DoctorVerificationStatus {
   REJECTED
 }
 
-enum SessionStatus {
-  PENDING
-  CONFIRMED
-  COMPLETED
-  CANCELLED
+type DoctorVerificationDocumentType {
+  id: ID!
+  name: String!
+  description: String
+  isRequired: Boolean!
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
 }
 
 type DoctorCertificate {
@@ -24,6 +28,8 @@ type DoctorCertificate {
   title: String!
   issuer: String
   fileUrl: String!
+  notes: String
+  documentType: DoctorVerificationDocumentType
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -47,6 +53,8 @@ type DoctorProfile {
   yearsOfExperience: Int
   licenseNumber: String
   verificationStatus: DoctorVerificationStatus!
+  hasSubmittedRequiredDocuments: Boolean!
+  visibleInSearch: Boolean!
   certificates: [DoctorCertificate!]!
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -67,25 +75,6 @@ type User {
   doctorProfile: DoctorProfile
 }
 
-type Session {
-  id: ID!
-  patient: User!
-  doctor: User!
-  startsAt: DateTime!
-  endsAt: DateTime!
-  notes: String
-  status: SessionStatus!
-  roomName: String
-  createdAt: DateTime!
-  updatedAt: DateTime!
-}
-
-type VideoCallRoom {
-  roomName: String!
-  token: String!
-  sessionId: ID!
-}
-
 type AuthPayload {
   accessToken: String!
   tokenType: String!
@@ -93,6 +82,7 @@ type AuthPayload {
 }
 
 input RegisterInput {
+  name: String!
   email: String!
   phone: String!
   password: String!
@@ -104,29 +94,41 @@ input LoginInput {
   password: String!
 }
 
-input BookSessionInput {
-  doctorId: ID!
-  startsAt: DateTime!
-  endsAt: DateTime!
+input UpsertDoctorVerificationDocumentTypeInput {
+  id: ID
+  name: String!
+  description: String
+  isRequired: Boolean!
+  isActive: Boolean!
+}
+
+input SubmitDoctorVerificationDocumentInput {
+  documentTypeId: ID!
+  fileUrl: String!
+  issuer: String
   notes: String
 }
 
-input UpdateSessionStatusInput {
-  sessionId: ID!
-  status: SessionStatus!
+input ReviewDoctorVerificationInput {
+  doctorProfileId: ID!
+  status: DoctorVerificationStatus!
 }
 
 type Query {
   me: User!
-  mySessions: [Session!]!
   doctors: [DoctorProfile]
+  verificationDocumentTypes(includeInactive: Boolean): [DoctorVerificationDocumentType!]!
+  mySubmittedCertificates: [DoctorCertificate!]!
 }
 
 type Mutation {
   register(input: RegisterInput!): AuthPayload!
   login(input: LoginInput!): AuthPayload!
-  bookSession(input: BookSessionInput!): Session!
-  updateSessionStatus(input: UpdateSessionStatusInput!): Session!
-  startVideoCall(sessionId: ID!): VideoCallRoom!
-  joinVideoCall(sessionId: ID!): VideoCallRoom!
+  upsertDoctorVerificationDocumentType(
+    input: UpsertDoctorVerificationDocumentTypeInput!
+  ): DoctorVerificationDocumentType!
+  submitDoctorVerificationDocument(
+    input: SubmitDoctorVerificationDocumentInput!
+  ): DoctorCertificate!
+  reviewDoctorVerification(input: ReviewDoctorVerificationInput!): DoctorProfile!
 }
