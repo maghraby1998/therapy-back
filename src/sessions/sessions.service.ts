@@ -182,7 +182,7 @@ export class SessionsService {
       const token = await this.liveKit.generateToken({
         identity: user.id,
         roomName: session.roomName,
-        isHost: true,
+        canPublish: true,
       });
 
       return { roomName: session.roomName, token, sessionId: session.id };
@@ -200,7 +200,7 @@ export class SessionsService {
     const token = await this.liveKit.generateToken({
       identity: user.id,
       roomName,
-      isHost: true,
+      canPublish: true,
     });
 
     return { roomName, token, sessionId: session.id };
@@ -234,7 +234,7 @@ export class SessionsService {
     const token = await this.liveKit.generateToken({
       identity: user.id,
       roomName: session.roomName,
-      isHost: session.doctorId === user.id,
+      canPublish: true,
     });
 
     return { roomName: session.roomName, token, sessionId: session.id };

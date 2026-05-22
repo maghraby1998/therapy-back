@@ -25,9 +25,9 @@ export class LiveKitService {
   async generateToken(params: {
     identity: string;
     roomName: string;
-    isHost: boolean;
+    canPublish: boolean;
   }): Promise<string> {
-    const { identity, roomName, isHost } = params;
+    const { identity, roomName, canPublish } = params;
 
     const token = new AccessToken(this.config.apiKey, this.config.apiSecret, {
       identity,
@@ -36,7 +36,7 @@ export class LiveKitService {
     token.addGrant({
       roomJoin: true,
       room: roomName,
-      canPublish: isHost,
+      canPublish,
       canSubscribe: true,
       canPublishData: true,
     });
