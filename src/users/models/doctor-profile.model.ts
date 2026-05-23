@@ -1,4 +1,5 @@
 import { DoctorVerificationStatus } from '../../common/enums/doctor-verification-status.enum';
+import { DoctorAvailabilityModel } from '../../sessions/models/doctor-availability.model';
 import { DoctorCertificateModel } from './doctor-certificate.model';
 
 export class DoctorProfileModel {
@@ -21,6 +22,10 @@ export class DoctorProfileModel {
   visibleInSearch?: boolean;
 
   certificates: DoctorCertificateModel[];
+
+  sessionDurationMinutes: number;
+
+  availability?: DoctorAvailabilityModel[];
 
   createdAt: Date;
 

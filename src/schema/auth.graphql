@@ -59,6 +59,8 @@ type DoctorProfile {
   hasSubmittedRequiredDocuments: Boolean!
   visibleInSearch: Boolean!
   certificates: [DoctorCertificate!]!
+  sessionDurationMinutes: Int!
+  availability: [DoctorAvailability!]!
   createdAt: DateTime!
   updatedAt: DateTime!
 }

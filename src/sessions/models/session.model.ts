@@ -22,3 +22,6 @@ export class SessionModel {
 
   doctor: UserModel;
 }
+
+export { DoctorAvailabilityModel } from './doctor-availability.model';
+export { TimeSlotModel } from './time-slot.model';

@@ -3,10 +3,14 @@ import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { GqlAuthGuard } from '../auth/gql-auth.guard';
 import { sanitizeUserForViewer } from '../users/user-sanitizer';
+import { DoctorProfileModel } from '../users/models/doctor-profile.model';
 import type { UserWithProfiles } from '../users/users.service';
 import { BookSessionInput } from './dto/book-session.input';
+import { SetAvailabilityInput } from './dto/set-availability.input';
 import { UpdateSessionStatusInput } from './dto/update-session-status.input';
+import { DoctorAvailabilityModel } from './models/doctor-availability.model';
 import { SessionModel } from './models/session.model';
+import { TimeSlotModel } from './models/time-slot.model';
 import { VideoCallRoomModel } from './models/video-call-room.model';
 import { SessionsService } from './sessions.service';
 
@@ -72,5 +76,31 @@ export class SessionsResolver {
     @Args('sessionId') sessionId: string,
   ): Promise<VideoCallRoomModel> {
     return this.sessionsService.joinVideoCall(user, sessionId);
+  }
+
+  @UseGuards(GqlAuthGuard)
+  @Mutation('setAvailability')
+  setAvailability(
+    @CurrentUser() user: UserWithProfiles,
+    @Args('input') input: SetAvailabilityInput,
+  ): Promise<DoctorAvailabilityModel[]> {
+    return this.sessionsService.setAvailability(user, input);
+  }
+
+  @UseGuards(GqlAuthGuard)
+  @Mutation('updateSessionDuration')
+  updateSessionDuration(
+    @CurrentUser() user: UserWithProfiles,
+    @Args('minutes') minutes: number,
+  ): Promise<DoctorProfileModel> {
+    return this.sessionsService.updateSessionDuration(user, minutes);
+  }
+
+  @Query('freeSlots')
+  freeSlots(
+    @Args('doctorId') doctorId: string,
+    @Args('date') date: string,
+  ): Promise<TimeSlotModel[]> {
+    return this.sessionsService.findFreeSlots(doctorId, date);
   }
 }

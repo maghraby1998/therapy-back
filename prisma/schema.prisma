@@ -69,18 +69,20 @@ model PatientProfile {
 }
 
 model DoctorProfile {
-  id                 String                   @id @default(uuid())
-  userId             String                   @unique
-  fullName           String?
-  specialty          String?
-  bio                String?
-  yearsOfExperience  Int?
-  licenseNumber      String?
-  verificationStatus DoctorVerificationStatus @default(PENDING)
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @updatedAt
-  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  certificates       DoctorCertificate[]
+  id                     String                   @id @default(uuid())
+  userId                 String                   @unique
+  fullName               String?
+  specialty              String?
+  bio                    String?
+  yearsOfExperience      Int?
+  licenseNumber          String?
+  verificationStatus     DoctorVerificationStatus @default(PENDING)
+  sessionDurationMinutes Int                      @default(60)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  user                   User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  certificates           DoctorCertificate[]
+  availability           DoctorAvailability[]
 }
 
 model DoctorVerificationDocumentType {
@@ -110,6 +112,21 @@ model DoctorCertificate {
   @@index([doctorProfileId])
   @@index([documentTypeId])
   @@unique([doctorProfileId, documentTypeId])
+}
+
+model DoctorAvailability {
+  id        String   @id @default(uuid())
+  doctorId  String
+  dayOfWeek Int      // 0=Sunday, 1=Monday ... 6=Saturday
+  startTime String   // "HH:mm"
+  endTime   String   // "HH:mm"
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  doctor    DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, dayOfWeek])
 }
 
 model Session {

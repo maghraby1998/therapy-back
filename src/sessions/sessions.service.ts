@@ -13,8 +13,10 @@ import {
 import { TrackSource } from 'livekit-server-sdk';
 import { UserWithProfiles } from '../users/users.service';
 import { PrismaService } from '../prisma.service';
+import { DayOfWeek } from './enums/day-of-week.enum';
 import { LiveKitService } from './livekit/livekit.service';
 import { BookSessionInput } from './dto/book-session.input';
+import { SetAvailabilityInput } from './dto/set-availability.input';
 import { UpdateSessionStatusInput } from './dto/update-session-status.input';
 
 const sessionInclude = {
@@ -124,9 +126,22 @@ export class SessionsService {
       throw new NotFoundException('Doctor not found');
     }
 
+    const sessionDurationMinutes =
+      doctor.doctorProfile.sessionDurationMinutes || 60;
+    const actualDurationMinutes =
+      (endsAt.getTime() - startsAt.getTime()) / 60_000;
+
+    if (actualDurationMinutes !== sessionDurationMinutes) {
+      throw new BadRequestException(
+        `Session must be exactly ${sessionDurationMinutes} minutes long`,
+      );
+    }
+
+    await this.validateSlotInAvailability(input.doctorId, startsAt, endsAt);
+
     await this.ensureNoConflicts({
       patientId: user.id,
-      doctorId: input.doctorId,
+      doctorId: doctor.id,
       startsAt,
       endsAt,
     });
@@ -291,6 +306,197 @@ export class SessionsService {
     return { roomName: session.roomName, token, sessionId: session.id };
   }
 
+  async setAvailability(
+    user: UserWithProfiles,
+    input: SetAvailabilityInput,
+  ) {
+    if (user.role !== UserRole.DOCTOR || !user.doctorProfile) {
+      throw new ForbiddenException('Only doctors can set availability');
+    }
+
+    const doctorProfileId = user.doctorProfile.id;
+
+    await this.prisma.doctorAvailability.deleteMany({
+      where: { doctorId: doctorProfileId },
+    });
+
+    if (input.slots.length === 0) {
+      return [];
+    }
+
+    const records = input.slots.map((slot) => ({
+      doctorId: doctorProfileId,
+      dayOfWeek: slot.dayOfWeek as unknown as number,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      startDate: new Date(slot.startDate),
+      endDate: new Date(slot.endDate),
+    }));
+
+    await this.prisma.doctorAvailability.createMany({ data: records });
+
+    const saved = await this.prisma.doctorAvailability.findMany({
+      where: { doctorId: doctorProfileId },
+      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+    });
+
+    return saved.map(mapAvailability);
+  }
+
+  async updateSessionDuration(user: UserWithProfiles, minutes: number) {
+    if (user.role !== UserRole.DOCTOR || !user.doctorProfile) {
+      throw new ForbiddenException('Only doctors can update session duration');
+    }
+
+    return this.prisma.doctorProfile.update({
+      where: { id: user.doctorProfile.id },
+      data: { sessionDurationMinutes: minutes },
+      include: {
+        certificates: {
+          include: { documentType: true },
+        },
+      },
+    });
+  }
+
+  async findFreeSlots(doctorUserId: string, dateStr: string) {
+    const date = new Date(dateStr);
+
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException('Invalid date');
+    }
+
+    const dayOfWeek = date.getDay();
+
+    const doctorUser = await this.prisma.user.findUnique({
+      where: { id: doctorUserId },
+      include: {
+        doctorProfile: {
+          include: { availability: true },
+        },
+      },
+    });
+
+    if (!doctorUser?.doctorProfile) {
+      throw new NotFoundException('Doctor not found');
+    }
+
+    const { doctorProfile } = doctorUser;
+    const sessionDuration = doctorProfile.sessionDurationMinutes || 60;
+
+    const coverageRules = doctorProfile.availability.filter((a) => {
+      const start = new Date(a.startDate);
+      const end = new Date(a.endDate);
+      end.setHours(23, 59, 59, 999);
+      return a.dayOfWeek === dayOfWeek && start <= date && end >= date;
+    });
+
+    if (coverageRules.length === 0) {
+      return [];
+    }
+
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const bookedSessions = await this.prisma.session.findMany({
+      where: {
+        doctorId: doctorUserId,
+        status: { in: [SessionStatus.PENDING, SessionStatus.CONFIRMED] },
+        startsAt: { gte: dayStart, lt: dayEnd },
+      },
+      select: { startsAt: true, endsAt: true },
+    });
+
+    const ranges = coverageRules.map((rule) => {
+      const [startH, startM] = rule.startTime.split(':').map(Number);
+      const [endH, endM] = rule.endTime.split(':').map(Number);
+      const start = new Date(date);
+      start.setHours(startH, startM, 0, 0);
+      const end = new Date(date);
+      end.setHours(endH, endM, 0, 0);
+      return { start, end };
+    });
+
+    const slots: { startTime: Date; endTime: Date }[] = [];
+    const durationMs = sessionDuration * 60 * 1000;
+
+    for (const range of ranges) {
+      const cursor = new Date(range.start);
+
+      while (cursor.getTime() + durationMs <= range.end.getTime()) {
+        const slotStart = new Date(cursor);
+        const slotEnd = new Date(cursor.getTime() + durationMs);
+
+        const hasOverlap = bookedSessions.some(
+          (s) => slotStart < s.endsAt && slotEnd > s.startsAt,
+        );
+
+        if (!hasOverlap) {
+          slots.push({ startTime: slotStart, endTime: slotEnd });
+        }
+
+        cursor.setTime(cursor.getTime() + durationMs);
+      }
+    }
+
+    return slots;
+  }
+
+  async getDoctorAvailability(doctorProfileId: string) {
+    const profile = await this.prisma.doctorProfile.findUnique({
+      where: { id: doctorProfileId },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+
+    return this.prisma.doctorAvailability.findMany({
+      where: { doctorId: doctorProfileId },
+      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+    });
+  }
+
+  private async validateSlotInAvailability(
+    doctorProfileId: string,
+    startsAt: Date,
+    endsAt: Date,
+  ) {
+    const dayOfWeek = startsAt.getDay();
+
+    const rules = await this.prisma.doctorAvailability.findMany({
+      where: {
+        doctorId: doctorProfileId,
+        dayOfWeek,
+        startDate: { lte: startsAt },
+        endDate: { gte: startsAt },
+      },
+    });
+
+    if (rules.length === 0) {
+      throw new BadRequestException(
+        'The doctor is not available at this date and time',
+      );
+    }
+
+    const startMinutes = startsAt.getHours() * 60 + startsAt.getMinutes();
+    const endMinutes = endsAt.getHours() * 60 + endsAt.getMinutes();
+
+    const isCovered = rules.some((r) => {
+      const [sh, sm] = r.startTime.split(':').map(Number);
+      const [eh, em] = r.endTime.split(':').map(Number);
+      return startMinutes >= sh * 60 + sm && endMinutes <= eh * 60 + em;
+    });
+
+    if (!isCovered) {
+      throw new BadRequestException(
+        'The requested time does not fall within the doctor\'s availability',
+      );
+    }
+  }
+
   private async ensureNoConflicts(params: {
     patientId: string;
     doctorId: string;
@@ -324,4 +530,13 @@ export class SessionsService {
       );
     }
   }
+}
+
+function mapAvailability<T extends Record<string, unknown>>(
+  record: T & { dayOfWeek: number },
+): T & { dayOfWeek: DayOfWeek } {
+  return {
+    ...record,
+    dayOfWeek: DayOfWeek[record.dayOfWeek] as unknown as DayOfWeek,
+  };
 }

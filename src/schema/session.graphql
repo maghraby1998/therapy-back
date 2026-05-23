@@ -18,15 +18,54 @@ type Session {
   updatedAt: DateTime!
 }
 
+enum DayOfWeek {
+  SUNDAY
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+}
+
+type DoctorAvailability {
+  id: ID!
+  dayOfWeek: DayOfWeek!
+  startTime: String!
+  endTime: String!
+  startDate: DateTime!
+  endDate: DateTime!
+}
+
+type TimeSlot {
+  startTime: DateTime!
+  endTime: DateTime!
+}
+
+input AvailabilityInput {
+  dayOfWeek: DayOfWeek!
+  startTime: String!
+  endTime: String!
+  startDate: DateTime!
+  endDate: DateTime!
+}
+
+input SetAvailabilityInput {
+  slots: [AvailabilityInput!]!
+}
+
 type Mutation {
   bookSession(input: BookSessionInput!): Session!
   updateSessionStatus(input: UpdateSessionStatusInput!): Session!
   startVideoCall(sessionId: ID!): VideoCallRoom!
   joinVideoCall(sessionId: ID!): VideoCallRoom!
+  setAvailability(input: SetAvailabilityInput!): [DoctorAvailability!]!
+  updateSessionDuration(minutes: Int!): DoctorProfile!
 }
 
 type Query {
   mySessions: [Session!]!
+  freeSlots(doctorId: ID!, date: DateTime!): [TimeSlot!]!
 }
 
 input UpdateSessionStatusInput {
