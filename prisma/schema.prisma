@@ -57,6 +57,8 @@ model PatientProfile {
   id                    String    @id @default(uuid())
   userId                String    @unique
   fullName              String?
+  nickname              String?
+  isAnonymous           Boolean   @default(false)
   dateOfBirth           DateTime?
   gender                String?
   emergencyContactName  String?

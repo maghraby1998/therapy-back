@@ -2,6 +2,7 @@ import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { GqlAuthGuard } from '../auth/gql-auth.guard';
+import { sanitizeUserForViewer } from '../users/user-sanitizer';
 import type { UserWithProfiles } from '../users/users.service';
 import { BookSessionInput } from './dto/book-session.input';
 import { UpdateSessionStatusInput } from './dto/update-session-status.input';
@@ -15,26 +16,44 @@ export class SessionsResolver {
 
   @UseGuards(GqlAuthGuard)
   @Query('mySessions')
-  mySessions(@CurrentUser() user: UserWithProfiles): Promise<SessionModel[]> {
-    return this.sessionsService.findMySessions(user);
+  async mySessions(@CurrentUser() user: UserWithProfiles): Promise<SessionModel[]> {
+    const sessions = await this.sessionsService.findMySessions(user);
+
+    return sessions.map((session) => ({
+      ...session,
+      patient: sanitizeUserForViewer(session.patient, user.id),
+      doctor: sanitizeUserForViewer(session.doctor, user.id),
+    }));
   }
 
   @UseGuards(GqlAuthGuard)
   @Mutation('bookSession')
-  bookSession(
+  async bookSession(
     @CurrentUser() user: UserWithProfiles,
     @Args('input') input: BookSessionInput,
   ): Promise<SessionModel> {
-    return this.sessionsService.bookSession(user, input);
+    const session = await this.sessionsService.bookSession(user, input);
+
+    return {
+      ...session,
+      patient: sanitizeUserForViewer(session.patient, user.id),
+      doctor: sanitizeUserForViewer(session.doctor, user.id),
+    };
   }
 
   @UseGuards(GqlAuthGuard)
   @Mutation('updateSessionStatus')
-  updateSessionStatus(
+  async updateSessionStatus(
     @CurrentUser() user: UserWithProfiles,
     @Args('input') input: UpdateSessionStatusInput,
   ): Promise<SessionModel> {
-    return this.sessionsService.updateSessionStatus(user, input);
+    const session = await this.sessionsService.updateSessionStatus(user, input);
+
+    return {
+      ...session,
+      patient: sanitizeUserForViewer(session.patient, user.id),
+      doctor: sanitizeUserForViewer(session.doctor, user.id),
+    };
   }
 
   @UseGuards(GqlAuthGuard)

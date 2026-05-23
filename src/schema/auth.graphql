@@ -38,6 +38,8 @@ type DoctorCertificate {
 type PatientProfile {
   id: ID!
   fullName: String
+  nickname: String
+  isAnonymous: Boolean!
   dateOfBirth: DateTime
   gender: String
   emergencyContactName: String
@@ -63,8 +65,8 @@ type DoctorProfile {
 
 type User {
   id: ID!
-  email: String!
-  phone: String!
+  email: String
+  phone: String
   role: UserRole!
   isActive: Boolean!
   isEmailVerified: Boolean!
@@ -88,6 +90,18 @@ input RegisterInput {
   phone: String!
   password: String!
   role: UserRole!
+  nickname: String
+  isAnonymous: Boolean
+}
+
+input UpdatePatientProfileInput {
+  fullName: String
+  nickname: String
+  isAnonymous: Boolean
+  dateOfBirth: DateTime
+  gender: String
+  emergencyContactName: String
+  emergencyContactPhone: String
 }
 
 input LoginInput {
@@ -125,6 +139,7 @@ type Query {
 type Mutation {
   register(input: RegisterInput!): AuthPayload!
   login(input: LoginInput!): AuthPayload!
+  updatePatientProfile(input: UpdatePatientProfileInput!): PatientProfile!
   upsertDoctorVerificationDocumentType(
     input: UpsertDoctorVerificationDocumentTypeInput!
   ): DoctorVerificationDocumentType!

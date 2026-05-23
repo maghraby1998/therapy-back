@@ -3,6 +3,10 @@ export class PatientProfileModel {
 
   fullName?: string | null;
 
+  nickname?: string | null;
+
+  isAnonymous: boolean;
+
   dateOfBirth?: Date | null;
 
   gender?: string | null;

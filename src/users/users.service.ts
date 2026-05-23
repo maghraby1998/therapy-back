@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, User, UserRole } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma.service';
 
@@ -56,8 +56,10 @@ export class UsersService {
     phone: string;
     passwordHash: string;
     role: UserRole;
+    nickname?: string;
+    isAnonymous?: boolean;
   }): Promise<UserWithProfiles> {
-    const { name, email, phone, passwordHash, role } = params;
+    const { name, email, phone, passwordHash, role, nickname, isAnonymous } = params;
 
     return this.prisma.user.create({
       data: {
@@ -70,6 +72,8 @@ export class UsersService {
             ? {
                 create: {
                   fullName: name,
+                  nickname: nickname || null,
+                  isAnonymous: isAnonymous ?? false,
                 },
               }
             : undefined,
@@ -84,5 +88,33 @@ export class UsersService {
       },
       include: userWithProfilesInclude,
     });
+  }
+
+  async updatePatientProfile(
+    userId: string,
+    data: {
+      fullName?: string;
+      nickname?: string;
+      isAnonymous?: boolean;
+      dateOfBirth?: Date;
+      gender?: string;
+      emergencyContactName?: string;
+      emergencyContactPhone?: string;
+    },
+  ): Promise<UserWithProfiles> {
+    const patientProfile = await this.prisma.patientProfile.findUnique({
+      where: { userId },
+    });
+
+    if (!patientProfile) {
+      throw new NotFoundException('Patient profile not found');
+    }
+
+    await this.prisma.patientProfile.update({
+      where: { userId },
+      data,
+    });
+
+    return this.findById(userId) as Promise<UserWithProfiles>;
   }
 }

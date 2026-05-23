@@ -28,6 +28,8 @@ export class AuthService {
     const name = input.name.trim();
     const email = input.email.trim().toLowerCase();
     const phone = input.phone.trim();
+    const nickname = input.nickname?.trim();
+    const isAnonymous = input.isAnonymous;
 
     if (input.role === UserRole.ADMIN) {
       throw new BadRequestException('Admin accounts cannot self-register');
@@ -54,6 +56,8 @@ export class AuthService {
       phone,
       passwordHash,
       role: input.role,
+      nickname,
+      isAnonymous,
     });
 
     return this.buildAuthPayload(user);
