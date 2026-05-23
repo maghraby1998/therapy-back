@@ -10,6 +10,7 @@ import {
   SessionStatus,
   UserRole,
 } from '../../generated/prisma/client';
+import { TrackSource } from 'livekit-server-sdk';
 import { UserWithProfiles } from '../users/users.service';
 import { PrismaService } from '../prisma.service';
 import { LiveKitService } from './livekit/livekit.service';
@@ -278,10 +279,13 @@ export class SessionsService {
       );
     }
 
+    const isAnonymousPatient = user.patientProfile?.isAnonymous === true;
+
     const token = await this.liveKit.generateToken({
       identity: user.id,
       roomName: session.roomName,
       canPublish: true,
+      allowedSources: isAnonymousPatient ? [TrackSource.MICROPHONE] : undefined,
     });
 
     return { roomName: session.roomName, token, sessionId: session.id };

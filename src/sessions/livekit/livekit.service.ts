@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
-import { AccessToken, RoomServiceClient } from 'livekit-server-sdk';
+import { AccessToken, RoomServiceClient, TrackSource } from 'livekit-server-sdk';
 import { liveKitConfig } from './livekit.config';
 
 @Injectable()
@@ -26,8 +26,9 @@ export class LiveKitService {
     identity: string;
     roomName: string;
     canPublish: boolean;
+    allowedSources?: TrackSource[];
   }): Promise<string> {
-    const { identity, roomName, canPublish } = params;
+    const { identity, roomName, canPublish, allowedSources } = params;
 
     const token = new AccessToken(this.config.apiKey, this.config.apiSecret, {
       identity,
@@ -37,6 +38,7 @@ export class LiveKitService {
       roomJoin: true,
       room: roomName,
       canPublish,
+      ...(allowedSources ? { canPublishSources: allowedSources } : {}),
       canSubscribe: true,
       canPublishData: true,
     });
