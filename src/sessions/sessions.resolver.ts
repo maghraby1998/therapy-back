@@ -6,9 +6,9 @@ import { sanitizeUserForViewer } from '../users/user-sanitizer';
 import { DoctorProfileModel } from '../users/models/doctor-profile.model';
 import type { UserWithProfiles } from '../users/users.service';
 import { BookSessionInput } from './dto/book-session.input';
-import { SetAvailabilityInput } from './dto/set-availability.input';
+import { CreateScheduleInput } from './dto/create-schedule.input';
 import { UpdateSessionStatusInput } from './dto/update-session-status.input';
-import { DoctorAvailabilityModel } from './models/doctor-availability.model';
+import { DoctorScheduleModel } from './models/doctor-schedule.model';
 import { SessionModel } from './models/session.model';
 import { TimeSlotModel } from './models/time-slot.model';
 import { VideoCallRoomModel } from './models/video-call-room.model';
@@ -79,12 +79,21 @@ export class SessionsResolver {
   }
 
   @UseGuards(GqlAuthGuard)
-  @Mutation('setAvailability')
-  setAvailability(
+  @Mutation('createSchedule')
+  createSchedule(
     @CurrentUser() user: UserWithProfiles,
-    @Args('input') input: SetAvailabilityInput,
-  ): Promise<DoctorAvailabilityModel[]> {
-    return this.sessionsService.setAvailability(user, input);
+    @Args('input') input: CreateScheduleInput,
+  ): Promise<DoctorScheduleModel> {
+    return this.sessionsService.createSchedule(user, input);
+  }
+
+  @UseGuards(GqlAuthGuard)
+  @Mutation('deleteSchedule')
+  deleteSchedule(
+    @CurrentUser() user: UserWithProfiles,
+    @Args('scheduleId') scheduleId: string,
+  ): Promise<boolean> {
+    return this.sessionsService.deleteSchedule(user, scheduleId);
   }
 
   @UseGuards(GqlAuthGuard)
@@ -102,5 +111,13 @@ export class SessionsResolver {
     @Args('date') date: string,
   ): Promise<TimeSlotModel[]> {
     return this.sessionsService.findFreeSlots(doctorId, date);
+  }
+
+  @UseGuards(GqlAuthGuard)
+  @Query('mySchedules')
+  mySchedules(
+    @CurrentUser() user: UserWithProfiles,
+  ): Promise<DoctorScheduleModel[]> {
+    return this.sessionsService.findMySchedules(user);
   }
 }

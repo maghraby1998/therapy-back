@@ -1,6 +1,6 @@
 import { DayOfWeek } from '../enums/day-of-week.enum';
 
-export class DoctorAvailabilityModel {
+export class ScheduleSlotModel {
   id: string;
 
   dayOfWeek: DayOfWeek;
@@ -8,8 +8,4 @@ export class DoctorAvailabilityModel {
   startTime: string;
 
   endTime: string;
-
-  startDate: Date;
-
-  endDate: Date;
 }

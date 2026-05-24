@@ -7,6 +7,7 @@ import {
 import {
   DoctorVerificationStatus,
   Prisma,
+  ScheduleStatus,
   SessionStatus,
   UserRole,
 } from '../../generated/prisma/client';
@@ -16,7 +17,7 @@ import { PrismaService } from '../prisma.service';
 import { DayOfWeek } from './enums/day-of-week.enum';
 import { LiveKitService } from './livekit/livekit.service';
 import { BookSessionInput } from './dto/book-session.input';
-import { SetAvailabilityInput } from './dto/set-availability.input';
+import { CreateScheduleInput } from './dto/create-schedule.input';
 import { UpdateSessionStatusInput } from './dto/update-session-status.input';
 
 const sessionInclude = {
@@ -137,7 +138,7 @@ export class SessionsService {
       );
     }
 
-    await this.validateSlotInAvailability(input.doctorId, startsAt, endsAt);
+    await this.validateSlotInSchedule(input.doctorId, startsAt, endsAt);
 
     await this.ensureNoConflicts({
       patientId: user.id,
@@ -306,41 +307,70 @@ export class SessionsService {
     return { roomName: session.roomName, token, sessionId: session.id };
   }
 
-  async setAvailability(
-    user: UserWithProfiles,
-    input: SetAvailabilityInput,
-  ) {
+  async createSchedule(user: UserWithProfiles, input: CreateScheduleInput) {
     if (user.role !== UserRole.DOCTOR || !user.doctorProfile) {
-      throw new ForbiddenException('Only doctors can set availability');
+      throw new ForbiddenException('Only doctors can manage schedules');
     }
 
     const doctorProfileId = user.doctorProfile.id;
+    const startsAt = new Date(input.startsAt);
 
-    await this.prisma.doctorAvailability.deleteMany({
-      where: { doctorId: doctorProfileId },
-    });
-
-    if (input.slots.length === 0) {
-      return [];
+    if (Number.isNaN(startsAt.getTime())) {
+      throw new BadRequestException('Invalid startsAt date');
     }
 
-    const records = input.slots.map((slot) => ({
-      doctorId: doctorProfileId,
-      dayOfWeek: slot.dayOfWeek as unknown as number,
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      startDate: new Date(slot.startDate),
-      endDate: new Date(slot.endDate),
-    }));
-
-    await this.prisma.doctorAvailability.createMany({ data: records });
-
-    const saved = await this.prisma.doctorAvailability.findMany({
-      where: { doctorId: doctorProfileId },
-      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+    const schedule = await this.prisma.doctorSchedule.create({
+      data: {
+        doctorId: doctorProfileId,
+        startsAt,
+        status: input.status,
+        slots:
+          input.slots && input.slots.length > 0
+            ? {
+                create: input.slots.map((slot) => ({
+                  dayOfWeek: slot.dayOfWeek as unknown as number,
+                  startTime: slot.startTime,
+                  endTime: slot.endTime,
+                })),
+              }
+            : undefined,
+      },
+      include: { slots: true },
     });
 
-    return saved.map(mapAvailability);
+    return mapSchedule(schedule);
+  }
+
+  async deleteSchedule(user: UserWithProfiles, scheduleId: string) {
+    if (user.role !== UserRole.DOCTOR || !user.doctorProfile) {
+      throw new ForbiddenException('Only doctors can manage schedules');
+    }
+
+    const schedule = await this.prisma.doctorSchedule.findUnique({
+      where: { id: scheduleId },
+    });
+
+    if (!schedule || schedule.doctorId !== user.doctorProfile.id) {
+      throw new NotFoundException('Schedule not found');
+    }
+
+    await this.prisma.doctorSchedule.delete({ where: { id: scheduleId } });
+
+    return true;
+  }
+
+  async findMySchedules(user: UserWithProfiles) {
+    if (user.role !== UserRole.DOCTOR || !user.doctorProfile) {
+      throw new ForbiddenException('Only doctors can view their schedules');
+    }
+
+    const schedules = await this.prisma.doctorSchedule.findMany({
+      where: { doctorId: user.doctorProfile.id },
+      include: { slots: true },
+      orderBy: { startsAt: 'desc' },
+    });
+
+    return schedules.map(mapSchedule);
   }
 
   async updateSessionDuration(user: UserWithProfiles, minutes: number) {
@@ -372,7 +402,12 @@ export class SessionsService {
       where: { id: doctorUserId },
       include: {
         doctorProfile: {
-          include: { availability: true },
+          include: {
+            schedules: {
+              include: { slots: true },
+              orderBy: { startsAt: 'desc' },
+            },
+          },
         },
       },
     });
@@ -384,14 +419,20 @@ export class SessionsService {
     const { doctorProfile } = doctorUser;
     const sessionDuration = doctorProfile.sessionDurationMinutes || 60;
 
-    const coverageRules = doctorProfile.availability.filter((a) => {
-      const start = new Date(a.startDate);
-      const end = new Date(a.endDate);
-      end.setHours(23, 59, 59, 999);
-      return a.dayOfWeek === dayOfWeek && start <= date && end >= date;
-    });
+    // Find the most recent schedule that started on or before the requested date
+    const activeSchedule = doctorProfile.schedules
+      .filter((s) => s.startsAt <= date)
+      .sort((a, b) => b.startsAt.getTime() - a.startsAt.getTime())[0];
 
-    if (coverageRules.length === 0) {
+    if (!activeSchedule || activeSchedule.status !== ScheduleStatus.WORKING) {
+      return [];
+    }
+
+    const coverageSlots = activeSchedule.slots.filter(
+      (s) => s.dayOfWeek === dayOfWeek,
+    );
+
+    if (coverageSlots.length === 0) {
       return [];
     }
 
@@ -409,9 +450,9 @@ export class SessionsService {
       select: { startsAt: true, endsAt: true },
     });
 
-    const ranges = coverageRules.map((rule) => {
-      const [startH, startM] = rule.startTime.split(':').map(Number);
-      const [endH, endM] = rule.endTime.split(':').map(Number);
+    const ranges = coverageSlots.map((slot) => {
+      const [startH, startM] = slot.startTime.split(':').map(Number);
+      const [endH, endM] = slot.endTime.split(':').map(Number);
       const start = new Date(date);
       start.setHours(startH, startM, 0, 0);
       const end = new Date(date);
@@ -419,7 +460,7 @@ export class SessionsService {
       return { start, end };
     });
 
-    const slots: { startTime: Date; endTime: Date }[] = [];
+    const result: { startTime: Date; endTime: Date }[] = [];
     const durationMs = sessionDuration * 60 * 1000;
 
     for (const range of ranges) {
@@ -434,48 +475,43 @@ export class SessionsService {
         );
 
         if (!hasOverlap) {
-          slots.push({ startTime: slotStart, endTime: slotEnd });
+          result.push({ startTime: slotStart, endTime: slotEnd });
         }
 
         cursor.setTime(cursor.getTime() + durationMs);
       }
     }
 
-    return slots;
+    return result;
   }
 
-  async getDoctorAvailability(doctorProfileId: string) {
-    const profile = await this.prisma.doctorProfile.findUnique({
-      where: { id: doctorProfileId },
-    });
-
-    if (!profile) {
-      throw new NotFoundException('Doctor profile not found');
-    }
-
-    return this.prisma.doctorAvailability.findMany({
-      where: { doctorId: doctorProfileId },
-      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
-    });
-  }
-
-  private async validateSlotInAvailability(
+  private async validateSlotInSchedule(
     doctorProfileId: string,
     startsAt: Date,
     endsAt: Date,
   ) {
     const dayOfWeek = startsAt.getDay();
 
-    const rules = await this.prisma.doctorAvailability.findMany({
-      where: {
-        doctorId: doctorProfileId,
-        dayOfWeek,
-        startDate: { lte: startsAt },
-        endDate: { gte: startsAt },
-      },
+    const schedules = await this.prisma.doctorSchedule.findMany({
+      where: { doctorId: doctorProfileId, startsAt: { lte: startsAt } },
+      include: { slots: true },
+      orderBy: { startsAt: 'desc' },
+      take: 1,
     });
 
-    if (rules.length === 0) {
+    const activeSchedule = schedules[0];
+
+    if (!activeSchedule || activeSchedule.status !== ScheduleStatus.WORKING) {
+      throw new BadRequestException(
+        'The doctor is not available at this date and time',
+      );
+    }
+
+    const matchingSlots = activeSchedule.slots.filter(
+      (s) => s.dayOfWeek === dayOfWeek,
+    );
+
+    if (matchingSlots.length === 0) {
       throw new BadRequestException(
         'The doctor is not available at this date and time',
       );
@@ -484,7 +520,7 @@ export class SessionsService {
     const startMinutes = startsAt.getHours() * 60 + startsAt.getMinutes();
     const endMinutes = endsAt.getHours() * 60 + endsAt.getMinutes();
 
-    const isCovered = rules.some((r) => {
+    const isCovered = matchingSlots.some((r) => {
       const [sh, sm] = r.startTime.split(':').map(Number);
       const [eh, em] = r.endTime.split(':').map(Number);
       return startMinutes >= sh * 60 + sm && endMinutes <= eh * 60 + em;
@@ -532,11 +568,14 @@ export class SessionsService {
   }
 }
 
-function mapAvailability<T extends Record<string, unknown>>(
-  record: T & { dayOfWeek: number },
-): T & { dayOfWeek: DayOfWeek } {
+function mapSchedule<T extends { slots: Array<{ dayOfWeek: number } & Record<string, unknown>> }>(
+  schedule: T,
+) {
   return {
-    ...record,
-    dayOfWeek: DayOfWeek[record.dayOfWeek] as unknown as DayOfWeek,
+    ...schedule,
+    slots: schedule.slots.map((slot) => ({
+      ...slot,
+      dayOfWeek: DayOfWeek[slot.dayOfWeek] as unknown as DayOfWeek,
+    })),
   };
 }

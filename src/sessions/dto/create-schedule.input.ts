@@ -1,16 +1,17 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMinSize,
   IsArray,
   IsDateString,
   IsEnum,
+  IsOptional,
   IsString,
   Matches,
   ValidateNested,
 } from 'class-validator';
 import { DayOfWeek } from '../enums/day-of-week.enum';
+import { ScheduleStatus } from '../enums/schedule-status.enum';
 
-export class AvailabilityInput {
+export class ScheduleSlotInput {
   @IsEnum(DayOfWeek)
   dayOfWeek: DayOfWeek;
 
@@ -25,18 +26,18 @@ export class AvailabilityInput {
     message: 'endTime must be in HH:mm format',
   })
   endTime: string;
-
-  @IsDateString()
-  startDate: string;
-
-  @IsDateString()
-  endDate: string;
 }
 
-export class SetAvailabilityInput {
+export class CreateScheduleInput {
+  @IsDateString()
+  startsAt: string;
+
+  @IsEnum(ScheduleStatus)
+  status: ScheduleStatus;
+
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
-  @Type(() => AvailabilityInput)
-  slots: AvailabilityInput[];
+  @Type(() => ScheduleSlotInput)
+  slots?: ScheduleSlotInput[];
 }

@@ -60,7 +60,7 @@ type DoctorProfile {
   visibleInSearch: Boolean!
   certificates: [DoctorCertificate!]!
   sessionDurationMinutes: Int!
-  availability: [DoctorAvailability!]!
+  schedules: [DoctorSchedule!]!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
